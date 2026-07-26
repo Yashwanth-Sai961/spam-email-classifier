@@ -1,0 +1,25 @@
+# Core data handling
+pandas==3.0.3
+numpy==2.5.1
+
+# Machine learning
+scikit-learn==1.9.0
+joblib==1.5.3
+
+# Text preprocessing
+nltk==3.10.0
+
+# Web application
+streamlit==1.59.2
+
+# Visualization (used by the analytics dashboard)
+matplotlib==3.11.1
+plotly==5.24.1
+
+# PDF/CSV report generation
+reportlab==4.2.5
+
+# Explainability (optional — the custom rule-based engine in
+# explain_prediction.py works without this; SHAP adds deeper
+# feature-attribution explanations where installed)
+shap==0.46.0
