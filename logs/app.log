@@ -1,0 +1,90 @@
+2026-07-19 22:27:24 | WARNING  | src.url_checker | phishing_classifier not found — URL analysis will use heuristics only. Run `python -m src.phishing_model` to train it.
+2026-07-19 22:27:24 | INFO     | src.predict | Spam classifier and vectorizer loaded successfully.
+2026-07-19 22:28:17 | INFO     | src.predict | Analyzed email: spam=ham (95.9%), urls=1, risk_score=0, final=Safe
+2026-07-19 22:28:47 | INFO     | src.predict | Analyzed email: spam=ham (58.6%), urls=1, risk_score=15, final=Safe
+2026-07-19 22:29:11 | INFO     | src.predict | Analyzed email: spam=spam (67.1%), urls=1, risk_score=100, final=Critical Risk
+2026-07-19 22:30:22 | INFO     | src.predict | Analyzed email: spam=ham (87.4%), urls=1, risk_score=69, final=Spam
+2026-07-19 22:31:08 | INFO     | src.predict | Analyzed email: spam=ham (92.2%), urls=1, risk_score=0, final=Safe
+2026-07-19 22:31:29 | INFO     | src.predict | Analyzed email: spam=ham (87.4%), urls=1, risk_score=35, final=Safe
+2026-07-19 23:14:27 | WARNING  | src.url_checker | phishing_classifier not found — URL analysis will use heuristics only. Run `python -m src.phishing_model` to train it.
+2026-07-19 23:14:27 | INFO     | src.predict | Spam classifier and vectorizer loaded successfully.
+2026-07-19 23:15:27 | INFO     | src.predict | Analyzed email: spam=ham (66.6%), urls=1, risk_score=59, final=Spam
+2026-07-19 23:15:50 | INFO     | src.predict | Analyzed email: spam=ham (74.8%), urls=1, risk_score=96, final=Critical Risk
+2026-07-19 23:16:06 | INFO     | src.predict | Analyzed email: spam=ham (64.8%), urls=1, risk_score=48, final=Spam
+2026-07-19 23:16:28 | INFO     | src.predict | Analyzed email: spam=ham (64.5%), urls=1, risk_score=56, final=Spam
+2026-07-19 23:16:41 | INFO     | src.predict | Analyzed email: spam=spam (77.9%), urls=0, risk_score=78, final=Malicious
+2026-07-19 23:17:07 | INFO     | src.predict | Analyzed email: spam=ham (87.4%), urls=1, risk_score=100, final=Critical Risk
+2026-07-19 23:17:23 | INFO     | src.predict | Analyzed email: spam=ham (92.0%), urls=1, risk_score=0, final=Safe
+2026-07-19 23:18:26 | WARNING  | src.url_checker | phishing_classifier not found — URL analysis will use heuristics only. Run `python -m src.phishing_model` to train it.
+2026-07-19 23:18:26 | INFO     | src.predict | Spam classifier and vectorizer loaded successfully.
+2026-07-19 23:18:47 | INFO     | src.predict | Analyzed email: spam=ham (87.4%), urls=1, risk_score=0, final=Safe
+2026-07-19 23:19:16 | INFO     | src.predict | Analyzed email: spam=ham (86.3%), urls=2, risk_score=43, final=Spam
+2026-07-19 23:19:56 | INFO     | src.predict | Analyzed email: spam=ham (87.4%), urls=1, risk_score=0, final=Safe
+2026-07-20 10:01:50 | WARNING  | src.url_checker | phishing_classifier not found — URL analysis will use heuristics only. Run `python -m src.phishing_model` to train it.
+2026-07-20 10:01:50 | INFO     | src.predict | Spam classifier and vectorizer loaded successfully.
+2026-07-20 13:27:03 | WARNING  | src.url_checker | phishing_classifier not found — URL analysis will use heuristics only. Run `python -m src.phishing_model` to train it.
+2026-07-20 13:27:03 | INFO     | src.predict | Spam classifier and vectorizer loaded successfully.
+2026-07-20 13:27:28 | INFO     | src.predict | Analyzed email: spam=ham (87.4%), urls=1, risk_score=48, final=Spam
+2026-07-20 13:28:16 | INFO     | src.predict | Analyzed email: spam=ham (87.4%), urls=1, risk_score=10, final=Safe
+2026-07-20 13:29:03 | INFO     | src.predict | Analyzed email: spam=ham (87.4%), urls=1, risk_score=0, final=Safe
+2026-07-20 13:29:08 | INFO     | src.predict | Analyzed email: spam=ham (87.4%), urls=1, risk_score=0, final=Safe
+2026-07-20 13:29:08 | INFO     | src.predict | Analyzed email: spam=ham (87.4%), urls=1, risk_score=0, final=Safe
+2026-07-20 13:29:18 | INFO     | src.predict | Analyzed email: spam=ham (87.4%), urls=1, risk_score=8, final=Safe
+2026-07-20 13:29:28 | INFO     | src.predict | Analyzed email: spam=ham (87.4%), urls=1, risk_score=8, final=Safe
+2026-07-20 13:29:41 | INFO     | src.predict | Analyzed email: spam=ham (87.4%), urls=1, risk_score=0, final=Safe
+2026-07-20 13:29:53 | INFO     | src.predict | Analyzed email: spam=ham (87.4%), urls=1, risk_score=0, final=Safe
+2026-07-20 13:30:40 | INFO     | src.predict | Analyzed email: spam=ham (87.4%), urls=1, risk_score=0, final=Safe
+2026-07-20 13:31:05 | INFO     | src.predict | Analyzed email: spam=ham (87.4%), urls=1, risk_score=0, final=Safe
+2026-07-20 13:31:31 | INFO     | src.predict | Analyzed email: spam=ham (87.4%), urls=1, risk_score=10, final=Safe
+2026-07-20 13:31:42 | INFO     | src.predict | Analyzed email: spam=ham (87.4%), urls=1, risk_score=10, final=Safe
+2026-07-20 13:35:34 | INFO     | src.predict | Analyzed email: spam=ham (87.4%), urls=1, risk_score=28, final=Safe
+2026-07-20 13:36:03 | INFO     | src.predict | Analyzed email: spam=ham (87.4%), urls=1, risk_score=43, final=Spam
+2026-07-27 18:43:07 | WARNING  | src.url_checker | phishing_classifier not found — URL analysis will use heuristics only. Run `python -m src.phishing_model` to train it.
+2026-07-27 18:43:41 | WARNING  | src.url_checker | phishing_classifier not found — URL analysis will use heuristics only. Run `python -m src.phishing_model` to train it.
+2026-07-28 18:12:37 | WARNING  | src.url_checker | phishing_classifier not found — URL analysis will use heuristics only. Run `python -m src.phishing_model` to train it.
+2026-07-28 18:12:37 | INFO     | src.predict | Spam classifier and vectorizer loaded successfully.
+2026-07-28 18:18:12 | INFO     | src.predict | Analyzed email: spam=ham (98.6%), urls=0, risk_score=0, final=Safe
+2026-07-28 18:18:31 | INFO     | src.predict | Analyzed email: spam=spam (72.8%), urls=1, risk_score=82, final=Malicious
+2026-07-28 18:18:48 | INFO     | src.predict | Analyzed email: spam=ham (64.3%), urls=1, risk_score=61, final=Spam
+2026-07-28 18:19:05 | INFO     | src.predict | Analyzed email: spam=ham (56.6%), urls=1, risk_score=8, final=Safe
+2026-07-28 18:19:34 | INFO     | src.predict | Analyzed email: spam=ham (97.1%), urls=1, risk_score=25, final=Safe
+2026-07-28 18:23:48 | WARNING  | src.url_checker | phishing_classifier not found — URL analysis will use heuristics only. Run `python -m src.phishing_model` to train it.
+2026-07-28 21:56:59 | INFO     | src.predict | Spam classifier and vectorizer loaded successfully.
+2026-07-28 22:01:12 | INFO     | src.predict | Spam classifier and vectorizer loaded successfully.
+2026-07-28 22:03:47 | INFO     | src.predict | Spam classifier and vectorizer loaded successfully.
+2026-07-28 22:07:08 | INFO     | src.predict | Spam classifier and vectorizer loaded successfully.
+2026-07-28 22:08:54 | INFO     | src.predict | Spam classifier and vectorizer loaded successfully.
+2026-07-28 22:17:16 | INFO     | src.predict | Spam classifier and vectorizer loaded successfully.
+2026-07-28 22:17:45 | INFO     | src.predict | Analyzed email: spam=ham (87.4%), urls=1, risk_score=40, final=Spam
+2026-07-28 22:19:59 | INFO     | src.predict | Spam classifier and vectorizer loaded successfully.
+2026-07-28 22:20:22 | INFO     | src.predict | Analyzed email: spam=ham (87.4%), urls=1, risk_score=40, final=Spam
+2026-07-28 22:21:44 | INFO     | src.predict | Analyzed email: spam=spam (66.7%), urls=0, risk_score=67, final=Spam
+2026-07-28 22:22:09 | INFO     | src.predict | Analyzed email: spam=ham (59.6%), urls=1, risk_score=45, final=Spam
+2026-07-28 22:22:23 | INFO     | src.predict | Analyzed email: spam=ham (78.4%), urls=1, risk_score=40, final=Spam
+2026-07-28 22:22:51 | INFO     | src.predict | Analyzed email: spam=ham (70.1%), urls=1, risk_score=40, final=Spam
+2026-07-28 22:23:08 | INFO     | src.predict | Analyzed email: spam=ham (75.2%), urls=1, risk_score=0, final=Safe
+2026-07-28 22:23:32 | INFO     | src.predict | Analyzed email: spam=ham (91.4%), urls=3, risk_score=45, final=Spam
+2026-07-28 22:24:21 | INFO     | src.predict | Analyzed email: spam=ham (90.2%), urls=0, risk_score=0, final=Safe
+2026-07-28 22:24:42 | INFO     | src.predict | Analyzed email: spam=ham (90.2%), urls=0, risk_score=0, final=Safe
+2026-07-28 22:24:55 | INFO     | src.predict | Analyzed email: spam=ham (66.9%), urls=1, risk_score=45, final=Spam
+2026-07-28 22:25:18 | INFO     | src.predict | Analyzed email: spam=ham (75.2%), urls=1, risk_score=0, final=Safe
+2026-07-28 22:35:54 | INFO     | src.predict | Spam classifier and vectorizer loaded successfully.
+2026-07-28 22:36:15 | INFO     | src.predict | Analyzed email: spam=ham (75.2%), urls=1, risk_score=30, final=Safe
+2026-07-28 22:36:42 | INFO     | src.predict | Analyzed email: spam=ham (87.4%), urls=1, risk_score=30, final=Safe
+2026-07-28 22:37:14 | INFO     | src.predict | Analyzed email: spam=ham (87.4%), urls=1, risk_score=40, final=Spam
+2026-07-28 22:37:23 | INFO     | src.predict | Analyzed email: spam=ham (87.4%), urls=1, risk_score=30, final=Safe
+2026-07-28 22:44:45 | INFO     | src.predict | Spam classifier and vectorizer loaded successfully.
+2026-07-28 22:45:02 | INFO     | src.predict | Analyzed email: spam=ham (75.2%), urls=1, risk_score=30, final=Safe
+2026-07-28 22:48:20 | INFO     | src.predict | Spam classifier and vectorizer loaded successfully.
+2026-07-28 22:50:23 | INFO     | src.predict | Spam classifier and vectorizer loaded successfully.
+2026-07-28 23:21:08 | INFO     | src.predict | Spam classifier and vectorizer loaded successfully.
+2026-07-28 23:21:49 | INFO     | src.predict | Analyzed email: spam=ham (67.0%), urls=1, risk_score=40, final=Spam
+2026-07-28 23:22:11 | INFO     | src.predict | Analyzed email: spam=ham (67.0%), urls=1, risk_score=40, final=Spam
+2026-07-28 23:22:39 | INFO     | src.predict | Analyzed email: spam=ham (65.7%), urls=0, risk_score=50, final=Spam
+2026-07-28 23:22:57 | INFO     | src.predict | Analyzed email: spam=ham (71.7%), urls=1, risk_score=75, final=Phishing
+2026-07-28 23:23:18 | INFO     | src.predict | Analyzed email: spam=ham (71.7%), urls=2, risk_score=75, final=Phishing
+2026-07-28 23:23:38 | INFO     | src.predict | Analyzed email: spam=ham (67.2%), urls=2, risk_score=85, final=Phishing
+2026-07-28 23:23:54 | INFO     | src.predict | Analyzed email: spam=spam (51.0%), urls=0, risk_score=51, final=Spam
+2026-07-28 23:24:15 | INFO     | src.predict | Analyzed email: spam=ham (87.4%), urls=1, risk_score=45, final=Spam
+2026-07-28 23:24:35 | INFO     | src.predict | Analyzed email: spam=ham (87.4%), urls=1, risk_score=40, final=Spam
+2026-07-28 23:24:58 | INFO     | src.predict | Analyzed email: spam=ham (59.1%), urls=1, risk_score=55, final=Phishing

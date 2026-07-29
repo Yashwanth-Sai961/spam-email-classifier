@@ -1,5 +1,25 @@
+# Virtual environments
 venv/
+venv312/
+.venv/
+
+# Python
 __pycache__/
-*.pyc
-logs/
-.streamlit/
+*.py[cod]
+*.pyo
+
+# Jupyter
+.ipynb_checkpoints/
+
+# VS Code
+.vscode/
+
+# Streamlit
+.streamlit/secrets.toml
+
+# Model files (optional if too large)
+*.joblib
+
+# OS files
+.DS_Store
+Thumbs.db
