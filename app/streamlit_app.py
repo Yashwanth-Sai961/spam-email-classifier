@@ -33,7 +33,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if BASE_DIR not in sys.path:
     sys.path.insert(0, BASE_DIR)
 
-from src.predict import analyze_email  # noqa: E402  (import after sys.path setup)
+from src.predict import analyze_email, analyze_email_file  # noqa: E402  (import after sys.path setup)
 
 
 # --------------------------------------------------------------------------
@@ -404,11 +404,14 @@ def render_input_card():
         height=180,
         label_visibility="collapsed",
     )
-
+    uploaded_file = st.file_uploader(
+    "Or upload an email (.eml)",
+    type=["eml"],
+    )
     predict_clicked = st.button("🔍 Predict", use_container_width=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
-    return user_text, predict_clicked
+    return user_text, uploaded_file, predict_clicked
 
 
 # Maps final_prediction values (from src.risk_engine) to the CSS class,
@@ -587,28 +590,45 @@ def main():
     inject_custom_css()
     render_header()
 
-    user_text, predict_clicked = render_input_card()
-
+    user_text, uploaded_file, predict_clicked = render_input_card()
     if predict_clicked:
-        if not user_text or not user_text.strip():
-            st.warning("⚠️ Please enter a message before predicting.")
-        else:
-            with st.spinner("Analyzing message and checking URLs..."):
-                time.sleep(0.4)  # brief delay so the spinner is visible
-                try:
-                    result = analyze_email(user_text)
-                except FileNotFoundError as error:
-                    st.error(f"❌ Failed to load required files: {error}")
-                    render_footer()
-                    return
-                except Exception as error:  # noqa: BLE001 - surface prediction errors
-                    st.error(f"❌ Analysis failed: {error}")
-                    render_footer()
-                    return
 
-            render_result_card(result)
-            render_risk_score_card(result)
-            render_url_analysis_card(result)
+      if uploaded_file is None and (not user_text or not user_text.strip()):
+        st.warning("⚠️ Please enter a message or upload a .eml file.")
+
+      else:
+
+        with st.spinner("Analyzing email..."):
+            time.sleep(0.4)
+
+            try:
+
+                if uploaded_file is not None:
+                    import tempfile
+
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=".eml") as temp:
+                        temp.write(uploaded_file.read())
+                        temp_path = temp.name
+
+                    result = analyze_email_file(temp_path)
+
+                else:
+                    result = analyze_email(user_text)
+
+            except FileNotFoundError as error:
+                st.error(f"❌ Failed to load required files: {error}")
+                render_footer()
+                return
+
+            except Exception as error:
+                st.error(f"❌ Analysis failed: {error}")
+                render_footer()
+                return
+
+        render_result_card(result)
+        render_risk_score_card(result)
+        render_url_analysis_card(result)
+
 
     render_footer()
 

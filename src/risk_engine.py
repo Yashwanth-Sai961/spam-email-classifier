@@ -80,7 +80,36 @@ def _looks_like_phishing(all_flags: list[str]) -> bool:
         for flag in lowered_flags
         for indicator in _PHISHING_INDICATOR_SUBSTRINGS
     )
+def analyze_text_risk(text: str) -> tuple[int, list[str]]:
+    """
+    Detect phishing-style language patterns in email content.
+    """
 
+    score = 0
+    flags = []
+
+    text = text.lower()
+
+    phishing_patterns = {
+    "verify": 15,
+    "blocked": 15,
+    "suspended": 15,
+    "bank": 10,
+    "account": 10,
+    "password": 15,
+    "click": 10,
+    "urgent": 10,
+    "confirm": 10,
+    "payment": 10,
+}
+    for phrase, points in phishing_patterns.items():
+        if phrase in text:
+            score += points
+            flags.append(
+                f"Suspicious phrase detected: {phrase}"
+            )
+
+    return min(score, 100), flags
 
 def _determine_final_prediction(
     spam_prediction: str,
@@ -97,12 +126,7 @@ def _determine_final_prediction(
     Returns:
         One of: "Safe", "Spam", "Phishing", "Malicious", "Critical Risk".
     """
-    def _determine_final_prediction(
-    spam_prediction: str,
-    risk_score: int,
-    url_all_flags: list[str],
-) -> str:
-     """Determine the final prediction."""
+
 
     if risk_score >= 90:
         return "Critical Risk"
@@ -118,14 +142,14 @@ def _determine_final_prediction(
 
     return "Safe"
 
-
 def _build_explanation(
-    spam_prediction: str,
-    spam_probability: float,
-    url_analysis: dict,
-    risk_score: int,
-    final_prediction: str,
-) -> list[str]:
+    spam_prediction,
+    spam_probability,
+    url_analysis,
+    risk_score,
+    final_prediction,
+    attachment_risk=False,
+):
     """Build the human-readable prediction_explanation list.
 
     Combines the spam model's contribution with every URL-level flag so
@@ -170,49 +194,56 @@ def _build_explanation(
             )
         explanation.extend(url_analysis["all_flags"])
 
-    explanation.append(
-        f"Combined risk score: {risk_score}/100 -> classified as '{final_prediction}'."
+    if attachment_risk:
+     explanation.append(
+        "Dangerous attachment detected (e.g. .exe, .js, .bat)."
     )
 
     return explanation
 
 
-def compute_risk_score(spam_probability: float, url_max_risk: int) -> tuple[int, int]:
-    """Combine the spam and URL risk channels into a single 0-100 score.
+def compute_risk_score(
+    spam_probability: float,
+    url_risk: int,
+    text_risk: int,
+    attachment_risk: bool = False,
+) -> tuple[int, int]:
 
-    Args:
-        spam_probability: Probability (0-1) the spam model assigned to its
-            predicted class. Only meaningful as a risk signal when the
-            predicted class is "spam" — callers should pass 0.0 here if
-            the predicted class was "ham".
-        url_max_risk: The highest single-URL risk_score (0-100) found by
-            url_checker.analyze_urls() (already blends heuristic + ML
-            phishing_classifier signals internally).
-
-    Returns:
-        Tuple of (risk_score, confidence), both integers clamped to
-        [0, 100]. confidence is the strength of the single strongest
-        contributing signal, before the synergy bonus is added — i.e. how
-        sure the engine is based on its best individual piece of evidence,
-        independent of whether a second, weaker signal also agreed.
-    """
     spam_component = round(spam_probability * 100)
-    url_component = url_max_risk
+    url_component = url_risk
+    text_component = text_risk
+    attachment_component = 20 if attachment_risk else 0
 
-    base_score = max(spam_component, url_component)
-    weaker_signal = min(spam_component, url_component)
-    synergy_bonus = round(weaker_signal * _SYNERGY_BONUS_FACTOR)
+    base_score = max(
+        spam_component,
+        url_component,
+        text_component,
+    )
 
-    risk_score = min(100, base_score + synergy_bonus)
+    synergy_bonus = 0
+
+    if url_component > 0 and text_component > 0:
+        synergy_bonus += 10
+
+    if spam_component > 0 and url_component > 0:
+        synergy_bonus += 10
+
+    risk_score = min(
+        100,
+        base_score + synergy_bonus + attachment_component
+    )
+
     confidence = base_score
 
     return risk_score, confidence
 
 
 def analyze_email_risk(
-    spam_prediction: str,
+   spam_prediction: str,
     spam_probability: float,
     url_list: list[str],
+    email_text: str = "",
+    attachment_risk: bool = False,
 ) -> dict:
     """Run the full risk engine: URL analysis + score combination + explanation.
 
@@ -239,20 +270,37 @@ def analyze_email_risk(
             prediction_explanation  - list[str] explaining the verdict
     """
     url_analysis = analyze_urls(url_list)
-
+    text_risk, text_flags = analyze_text_risk(email_text)
+    
     # Only count the spam probability as a risk contributor when the
     # model actually predicted "spam" — a 95%-confident "ham" prediction
     # should not itself add risk.
     effective_spam_probability = spam_probability if spam_prediction == "spam" else 0.0
-
-    risk_score, confidence = compute_risk_score(effective_spam_probability, url_analysis["max_url_risk"])
+    risk_score, confidence = compute_risk_score(
+    effective_spam_probability,
+    url_analysis["max_url_risk"],
+    text_risk,
+    attachment_risk,
+)
+    
     risk_category = _categorize_risk_score(risk_score)
+    
+    url_analysis["all_flags"].extend(text_flags)
+
     final_prediction = _determine_final_prediction(
-        spam_prediction, risk_score, url_analysis["all_flags"]
-    )
+    spam_prediction,
+    risk_score,
+    url_analysis["all_flags"]
+)
+ 
     explanation = _build_explanation(
-        spam_prediction, spam_probability, url_analysis, risk_score, final_prediction
-    )
+    spam_prediction,
+    spam_probability,
+    url_analysis,
+    risk_score,
+    final_prediction,
+    attachment_risk
+)
 
     return {
         "final_prediction": final_prediction,

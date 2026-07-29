@@ -10,12 +10,13 @@ email. It replaces the earlier version of this file, which only ran the
 spam classifier and never looked at URLs at all — the root cause of the
 "Amazon account locked" phishing email being scored as Safe.
 """
-
+from src.email_parser import parse_eml_file
 import joblib
 
 from src.config import SPAM_CLASSIFIER_PATH, SPAM_POSITIVE_LABEL, TFIDF_VECTORIZER_PATH
 from src.preprocess import preprocess_text
 from src.risk_engine import analyze_email_risk
+from src.attachment_checker import check_attachments
 from src.url_features import extract_urls
 from src.utils import ensure_file_exists, get_logger
 
@@ -83,10 +84,12 @@ def analyze_email(email_body: str) -> dict:
     url_list = extract_urls(email_body)
 
     result = analyze_email_risk(
-        spam_prediction=spam_prediction,
-        spam_probability=spam_probability,
-        url_list=url_list,
-    )
+    spam_prediction,
+    spam_probability,
+    url_list,
+    email_body,
+    False
+)
 
     result["email_body"] = email_body
     result["url_list"] = url_list
@@ -101,7 +104,32 @@ def analyze_email(email_body: str) -> dict:
     )
 
     return result
+def analyze_email_file(file_path: str) -> dict:
+    """
+    Analyze a .eml email file.
+    """
 
+    email_data = parse_eml_file(file_path)
+
+    spam_prediction, spam_probability = classify_spam(email_data["body"])
+
+    url_list = extract_urls(email_data["body"])
+
+    attachment_result = check_attachments(email_data["attachments"])
+
+    result = analyze_email_risk(
+    spam_prediction=spam_prediction,
+    spam_probability=spam_probability,
+    url_list=url_list,
+    email_text=email_data["body"],
+    attachment_risk=attachment_result["attachment_risk"],
+)
+
+    result["subject"] = email_data["subject"]
+    result["sender"] = email_data["sender"]
+    result["attachments"] = attachment_result
+
+    return result
 
 def predict_message(message: str) -> None:
     """CLI-facing prediction: run the full pipeline and print a report.

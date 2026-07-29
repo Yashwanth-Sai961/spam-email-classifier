@@ -1,154 +1,138 @@
-"""
-url_checker.py
-
-Applies reputation/judgment heuristics to the objective features produced
-by url_features.py. Detects:
-    - Suspicious top-level domains commonly abused in phishing campaigns
-    - URL shorteners (used to hide the true destination)
-    - Brand impersonation / typosquatting against a list of known brands
-    - Suspicious keywords in the URL (login, verify, secure, etc.)
-    - IP-literal URLs, missing HTTPS, unusually long URLs, credential-
-      hiding "@" tricks, and high-entropy (likely auto-generated) domains
-
-Each check contributes points toward a 0-100 risk_score for that single
-URL, plus a human-readable flag explaining why. url_features.py measures;
-this module decides what those measurements mean.
-"""
-
+# --------------------------------------------------------------------------
+# Leetspeak / lookalike-character normalization
+# --------------------------------------------------------------------------
+# Phishing domains routinely swap letters for visually-similar digits/symbols
+# (micr0soft, paypa1, g00gle, arnaz0n, etc.) to dodge naive substring checks
+# while still looking convincing to a human at a glance. This map is used
+# ONLY to build a comparison string — the original domain/URL is never
+# altered, so flags/messages/scoring still reference the real domain.
 import difflib
-
-import joblib
-import pandas as pd
-
-from src.config import PHISHING_CLASSIFIER_PATH
-from src.url_features import KNOWN_SHORTENER_DOMAINS, extract_full_feature_vector, extract_url_features
-from src.utils import get_logger
-
-logger = get_logger(__name__)
-
 # --------------------------------------------------------------------------
-# ML phishing model (trained by phishing_model.py on the Vrbančič et al.
-# Phishing-Dataset — see README.md for full citation)
+# Known brands for phishing / impersonation detection
 # --------------------------------------------------------------------------
-# Loaded once at import time, like src/predict.py does for the spam model.
-# Loading is wrapped in a try/except rather than using ensure_file_exists,
-# because url_checker.py must still function with heuristics alone if the
-# phishing model hasn't been trained yet (e.g. a fresh clone of the repo
-# before running `python -m src.phishing_model`) — graceful degradation
-# instead of a hard crash.
-_PHISHING_FEATURE_COLUMNS_PATH = PHISHING_CLASSIFIER_PATH.parent / "phishing_feature_columns.joblib"
 
-try:
-    _phishing_pipeline = joblib.load(PHISHING_CLASSIFIER_PATH)
-    _phishing_feature_columns = joblib.load(_PHISHING_FEATURE_COLUMNS_PATH)
-    logger.info("phishing_classifier loaded successfully.")
-except FileNotFoundError:
-    _phishing_pipeline = None
-    _phishing_feature_columns = None
-    logger.warning(
-        "phishing_classifier not found — URL analysis will use heuristics "
-        "only. Run `python -m src.phishing_model` to train it."
-    )
-
-
-def get_phishing_ml_probability(url: str) -> float | None:
-    """Score a URL with the trained ML phishing_classifier.
-
-    Args:
-        url: A URL string.
-
-    Returns:
-        Probability (0-1) that the model assigns to the "phishing" class,
-        or None if phishing_classifier has not been trained/loaded.
-    """
-    if _phishing_pipeline is None:
-        return None
-
-    feature_vector = extract_full_feature_vector(url)
-    # Build a single-row DataFrame with columns in the EXACT order the
-    # model was trained on — column order mismatches silently produce
-    # garbage predictions with scikit-learn, so this alignment is critical.
-    row = pd.DataFrame([feature_vector])[_phishing_feature_columns]
-
-    probability = _phishing_pipeline.predict_proba(row)[0][1]
-    return float(probability)
-
-# --------------------------------------------------------------------------
-# Reputation reference data
-# --------------------------------------------------------------------------
-# TLDs disproportionately associated with spam/phishing campaigns, largely
-# because they are cheap or free to register with minimal verification.
-# This is a heuristic list, not exhaustive — legitimate sites do exist on
-# some of these, which is why this contributes points rather than an
-# automatic verdict.
-SUSPICIOUS_TLDS: frozenset[str] = frozenset({
-    "xyz", "top", "club", "tk", "ml", "ga", "cf", "gq", "work", "click",
-    "link", "loan", "win", "review", "download", "stream", "men", "party",
-    "science", "racing", "accountant", "faith", "date", "bid", "trade",
-    "webcam", "cricket", "kim", "country", "gdn",
-})
-
-# Words that frequently appear in phishing URLs, particularly in the path
-# or query string, designed to create urgency or imitate legitimate
-# account-management flows.
-SUSPICIOUS_KEYWORDS: frozenset[str] = frozenset({
-    "login", "verify", "secure", "account", "update", "confirm", "signin",
-    "banking", "suspended", "locked", "password", "security", "billing",
-    "invoice", "urgent", "restore", "unlock", "validate", "authenticate",
-    "webscr", "recovery",
-})
-
-# Well-known brands frequently impersonated in phishing campaigns, mapped
-# to their legitimate registrable domain. Used to detect both direct
-# impersonation (brand name embedded in a non-official domain) and
-# typosquatting (a domain label that's suspiciously *similar* to the brand
-# without being an exact match).
-KNOWN_BRANDS: dict[str, str] = {
-    "amazon": "amazon.com",
+KNOWN_BRANDS = {
     "paypal": "paypal.com",
-    "google": "google.com",
     "microsoft": "microsoft.com",
+    "google": "google.com",
+    "amazon": "amazon.com",
     "apple": "apple.com",
     "netflix": "netflix.com",
     "facebook": "facebook.com",
     "instagram": "instagram.com",
     "linkedin": "linkedin.com",
-    "ebay": "ebay.com",
-    "chase": "chase.com",
-    "wellsfargo": "wellsfargo.com",
-    "bankofamerica": "bankofamerica.com",
     "dropbox": "dropbox.com",
-    "docusign": "docusign.com",
+    "bankofamerica": "bankofamerica.com",
+    "icici": "icicibank.com",
+    "hdfc": "hdfcbank.com",
+    "sbi": "sbi.co.in"
 }
 
-# --------------------------------------------------------------------------
-# Scoring weights (points added toward a single URL's 0-100 risk_score)
-# --------------------------------------------------------------------------
-_WEIGHTS: dict[str, int] = {
-    "no_https": 10,
-    "ip_address": 30,
-    "suspicious_tld": 20,
-    "url_shortener": 15,
-    "brand_impersonation": 60,
-    "typosquatting": 60,
-    "suspicious_keyword": 8,   # per keyword found, capped below
-    "at_symbol": 20,
-    "long_url": 10,
-    "excessive_subdomains": 10,
-    "high_entropy": 15,
-    "punycode": 25,
+
+# ADD THIS
+URL_SHORTENERS = {
+    "bit.ly",
+    "tinyurl.com",
+    "t.co",
+    "goo.gl",
+    "ow.ly",
+    "buff.ly",
+    "is.gd",
+    "cutt.ly",
+    "shorturl.at"
 }
-_MAX_KEYWORD_POINTS = 24  # cap so keyword-stuffing can't dominate the score
-_LONG_URL_THRESHOLD = 75
-_EXCESSIVE_SUBDOMAIN_THRESHOLD = 3
-_HIGH_ENTROPY_THRESHOLD = 3.8
+_LEET_SUBSTITUTIONS: dict[str, str] = {
+    "0": "o", "1": "l", "3": "e", "4": "a", "5": "s",
+    "7": "t", "8": "b", "9": "g", "@": "a", "$": "s",
+}
+_LEET_TRANSLATION_TABLE = str.maketrans(_LEET_SUBSTITUTIONS)
+
+
+def _normalize_for_comparison(text: str) -> str:
+    """Map lookalike digits/symbols to their letter equivalents for matching.
+
+    Comparison-only helper — never used to rewrite the actual URL/domain
+    that gets reported back to the caller.
+
+    Args:
+        text: Raw label text (already lowercased upstream).
+
+    Returns:
+        The text with leetspeak substitutions applied.
+    """
+    return text.translate(_LEET_TRANSLATION_TABLE)
+
+
+def _get_comparable_labels(domain: str) -> list[str]:
+    """Break a domain into every normalized label worth comparing to a brand.
+
+    Domains are first split on "." (subdomain/registrable/TLD boundaries),
+    then each of those parts is further split on "-", because modern
+    phishing domains frequently smuggle a brand name into one hyphen-joined
+    segment alongside a keyword, e.g. "micr0soft-security.com" ->
+    ["micr0soft", "security", "com"]. Checking only the whole label or only
+    the primary (registrable) label — as the previous implementation did —
+    misses exactly this pattern. Each resulting piece is then leetspeak-
+    normalized so "micr0soft" compares equal to "microsoft".
+
+    Args:
+        domain: Lowercased domain string.
+
+    Returns:
+        List of normalized label fragments (may contain duplicates; callers
+        don't need uniqueness for correctness).
+    """
+    labels: list[str] = []
+    for dot_label in domain.split("."):
+        for hyphen_label in dot_label.split("-"):
+            if hyphen_label:
+                labels.append(_normalize_for_comparison(hyphen_label))
+    return labels
+
+
+# --------------------------------------------------------------------------
+# Similarity metric for typosquatting: prefer real Levenshtein distance,
+# fall back to difflib (stdlib-only) if the optional dependency isn't
+# installed, so this module doesn't gain a hard new requirement.
+# --------------------------------------------------------------------------
+try:
+    import Levenshtein
+
+    def _similarity(a: str, b: str) -> float:
+        """Return a 0-1 similarity ratio between two strings (Levenshtein)."""
+        return Levenshtein.ratio(a, b)
+
+except ImportError:
+    def _similarity(a: str, b: str) -> float:
+        """Return a 0-1 similarity ratio between two strings (difflib fallback)."""
+        return difflib.SequenceMatcher(None, a, b).ratio()
+
+
+def _is_legitimate_for_brand(domain: str, official_domain: str) -> bool:
+    """True if `domain` IS, or is a genuine subdomain of, a brand's official domain.
+
+    e.g. "microsoft.com" and "login.microsoft.com" are legitimate for the
+    "microsoft" brand and must never be flagged, no matter what their
+    individual labels look like after normalization.
+    """
+    return domain == official_domain or domain.endswith(f".{official_domain}")
 
 
 def _check_brand_impersonation(domain: str) -> str | None:
     """Detect a known brand name embedded in a non-official domain.
 
-    Example: "amazon-security-login.xyz" contains "amazon" but is not
-    amazon.com or a subdomain of it.
+    Unlike a single substring test against the whole domain, this now:
+      1. Splits the domain into hyphen- and dot-separated labels, so a
+         brand hidden in one segment of a multi-word domain (e.g. the
+         "micr0soft" in "micr0soft-security.com") is still caught.
+      2. Normalizes each label for common leetspeak substitutions first,
+         so "micr0soft", "paypa1", "g00gle", "amaz0n" etc. are recognized
+         as their real-word equivalents before comparison.
+
+    Legitimate domains are still fully exempted: if `domain` is a brand's
+    official domain or a subdomain of it, that brand is skipped entirely
+    (checked against the raw domain, not the normalized labels, so a
+    legitimate subdomain can never accidentally trip this check).
 
     Args:
         domain: Lowercased domain string.
@@ -156,24 +140,36 @@ def _check_brand_impersonation(domain: str) -> str | None:
     Returns:
         A flag message if impersonation is detected, otherwise None.
     """
+    labels = _get_comparable_labels(domain)
+
     for brand, official_domain in KNOWN_BRANDS.items():
-        if brand not in domain:
-            continue
-        if domain == official_domain or domain.endswith(f".{official_domain}"):
-            continue
-        return (
-            f"Domain contains brand name '{brand}' but is not an official "
-            f"{official_domain} domain (possible brand impersonation)"
-        )
+        if _is_legitimate_for_brand(domain, official_domain):
+            continue  # genuinely the brand's own domain/subdomain — not impersonation
+
+        for label in labels:
+            if brand in label:
+                return (
+                    f"Domain contains brand name '{brand}' (found in label "
+                    f"'{label}', possibly disguised with character "
+                    f"substitutions) but is not an official {official_domain} "
+                    f"domain (possible brand impersonation)"
+                )
     return None
 
 
 def _check_typosquatting(domain: str) -> str | None:
     """Detect a domain label that's suspiciously similar to a known brand.
 
-    Uses character-level similarity (difflib) rather than exact substring
-    matching, catching lookalikes like "arnazon.com" or "paypa1.com" that
-    _check_brand_impersonation would miss.
+    Every normalized label (post hyphen/dot-split, post leetspeak
+    normalization) is compared against every known brand using edit-
+    distance similarity (Levenshtein when available, difflib otherwise),
+    rather than just the single primary label as before. This catches
+    lookalikes such as "arnazon.com" or "paypa1-secure.com" regardless of
+    which segment of the domain they appear in.
+
+    A label that normalizes to an exact match for a brand is skipped here
+    (that's handled — and already caught — by `_check_brand_impersonation`
+    as impersonation, not typosquatting, avoiding double-flagging).
 
     Args:
         domain: Lowercased domain string.
@@ -181,223 +177,194 @@ def _check_typosquatting(domain: str) -> str | None:
     Returns:
         A flag message if likely typosquatting is detected, otherwise None.
     """
-    labels = [label for label in domain.split(".") if label]
+    labels = _get_comparable_labels(domain)
     if not labels:
         return None
 
-    # The registrable label is normally the second-to-last part
-    # (example.com -> "example"); for a bare host just use the first label.
-    primary_label = labels[-2] if len(labels) >= 2 else labels[0]
+    for label in labels:
+        for brand in KNOWN_BRANDS:
+            if label == brand:
+                continue  # exact match after normalization = impersonation's job, not typosquat's
 
-    for brand in KNOWN_BRANDS:
-        if primary_label == brand:
-            continue  # exact match is legitimate, not typosquatting
-        similarity = difflib.SequenceMatcher(None, primary_label, brand).ratio()
-        if similarity >= 0.75:
-            return (
-                f"Domain label '{primary_label}' closely resembles known "
-                f"brand '{brand}' (similarity {similarity:.0%}) — possible "
-                f"typosquatting"
-            )
+            similarity = _similarity(label, brand)
+            if similarity >= 0.75:
+                return (
+                    f"Domain label '{label}' closely resembles known "
+                    f"brand '{brand}' (similarity {similarity:.0%}) — possible "
+                    f"typosquatting"
+                )
     return None
+import re
+from urllib.parse import urlparse
 
 
-def _check_punycode(domain: str) -> str | None:
-    """Detect punycode-encoded (IDN) domain labels.
-
-    Punycode ("xn--" prefix) is the standard ASCII encoding for
-    internationalized domain names. It's legitimate in general, but is
-    also the mechanism behind homograph attacks — e.g. registering a
-    domain with a Cyrillic 'а' that displays identically to Latin 'a' in
-    "amazon.com", which browsers show as "xn--mazon-...". A domain using
-    punycode alongside other risk signals is worth flagging explicitly.
-
-    Args:
-        domain: Lowercased domain string.
-
-    Returns:
-        A flag message if any label starts with "xn--", otherwise None.
+def analyze_url(url: str) -> dict:
     """
-    for label in domain.split("."):
-        if label.startswith("xn--"):
-            return (
-                "Domain uses punycode encoding (xn--), which can hide "
-                "look-alike international characters mimicking a trusted brand"
-            )
-    return None
-
-
-def check_url(url: str) -> dict:
-    """Run all reputation heuristics against a single URL.
-
-    Args:
-        url: A URL string.
-
-    Returns:
-        A dict with:
-            url          - the original URL
-            risk_score   - 0-100 heuristic risk score for this URL alone
-            flags        - list of human-readable reasons contributing to
-                            the score (used directly in prediction_explanation)
-            features     - the underlying feature dict from url_features.py
+    Analyze a single URL and return risk information.
     """
-    features = extract_url_features(url)
-    flags: list[str] = []
+
     score = 0
+    flags = []
 
-    if not features["uses_https"]:
+    url = url.strip().lower()
+
+    # Missing HTTPS
+    if not url.startswith("https://"):
+        score += 15
         flags.append("URL does not use HTTPS")
-        score += _WEIGHTS["no_https"]
 
-    if features["has_ip_address"]:
-        flags.append("URL uses a raw IP address instead of a domain name")
-        score += _WEIGHTS["ip_address"]
+# Extract domain
+    try:
+        parsed = urlparse(url)
+        domain = parsed.netloc
 
-    if features["tld"] in SUSPICIOUS_TLDS:
-        flags.append(f"Uses a top-level domain commonly abused in phishing (.{features['tld']})")
-        score += _WEIGHTS["suspicious_tld"]
+        if not domain:
+            domain = parsed.path.split("/")[0]
 
-    if features["domain"] in KNOWN_SHORTENER_DOMAINS:
-        flags.append(f"Uses a URL shortening service ({features['domain']}) that hides the real destination")
-        score += _WEIGHTS["url_shortener"]
+        # URL shortener detection
+        if domain in URL_SHORTENERS:
+            score += 30
+            flags.append(
+                "URL uses a shortening service (possible hidden destination)"
+            )
 
-    impersonation_flag = _check_brand_impersonation(features["domain"])
-    if impersonation_flag:
-        flags.append(impersonation_flag)
-        score += _WEIGHTS["brand_impersonation"]
+
+    except Exception:
+        return {
+            "url": url,
+            "risk_score": 100,
+            "flags": ["Invalid URL"]
+        }
+
+
+    # Brand impersonation check
+    brand_flag = _check_brand_impersonation(domain)
+
+    if brand_flag:
+        score += 40
+        flags.append(brand_flag)
+
+
+    # Typosquatting check
+    typo_flag = _check_typosquatting(domain)
+
+    if typo_flag:
+        score += 35
+        flags.append(typo_flag)
+
+
+    # Suspicious keywords
+    suspicious_words = [
+    "login",
+    "verify",
+    "verification",
+    "secure",
+    "update",
+    "account",
+    "bank",
+    "blocked",
+    "suspended",
+    "password",
+    "confirm"
+]
+    for word in suspicious_words:
+        if word in url:
+            score += 5
+            flags.append(
+                f"Suspicious keyword detected: {word}"
+            )
+
+
+    score = min(score, 100)
+
+
+    if score >= 80:
+        level = "Critical Risk"
+    elif score >= 60:
+        level = "High Risk"
+    elif score >= 30:
+        level = "Suspicious"
     else:
-        typosquat_flag = _check_typosquatting(features["domain"])
-        if typosquat_flag:
-            flags.append(typosquat_flag)
-            score += _WEIGHTS["typosquatting"]
+        level = "Safe"
 
-    punycode_flag = _check_punycode(features["domain"])
-    if punycode_flag:
-        flags.append(punycode_flag)
-        score += _WEIGHTS["punycode"]
-
-    if features["has_at_symbol"]:
-        flags.append("URL contains '@', a technique used to disguise the real destination")
-        score += _WEIGHTS["at_symbol"]
-
-    if features["url_length"] > _LONG_URL_THRESHOLD:
-        flags.append(f"URL is excessively long ({features['url_length']} characters)")
-        score += _WEIGHTS["long_url"]
-
-    if features["num_subdomains"] > _EXCESSIVE_SUBDOMAIN_THRESHOLD:
-        flags.append(f"URL has an unusually high number of subdomains ({features['num_subdomains']})")
-        score += _WEIGHTS["excessive_subdomains"]
-
-    if features["domain_entropy"] > _HIGH_ENTROPY_THRESHOLD:
-        flags.append("Domain name has high randomness, suggesting auto-generated infrastructure")
-        score += _WEIGHTS["high_entropy"]
-
-    full_url_lower = url.lower()
-    found_keywords = [kw for kw in SUSPICIOUS_KEYWORDS if kw in full_url_lower]
-    if found_keywords:
-        keyword_points = min(len(found_keywords) * _WEIGHTS["suspicious_keyword"], _MAX_KEYWORD_POINTS)
-        flags.append(f"Contains suspicious keyword(s): {', '.join(sorted(found_keywords))}")
-        score += keyword_points
-
-    heuristic_score = min(score, 100)
-
-    # --- ML model signal (phishing_classifier, trained on real data) ---
-    phishing_ml_probability = get_phishing_ml_probability(url)
-    ml_score = round(phishing_ml_probability * 100) if phishing_ml_probability is not None else 0
-
-    if phishing_ml_probability is not None and phishing_ml_probability >= 0.5:
-        flags.append(
-            f"ML phishing model predicts {phishing_ml_probability * 100:.1f}% "
-            f"probability this URL is phishing (trained on real-world phishing/legitimate URLs)"
-        )
-
-    # KNOWN LIMITATION: the training dataset's directory/file/parameter
-    # feature-extraction algorithm was never published (only feature
-    # DEFINITIONS were, in the dataset's README) — url_features.py
-    # reconstructs it from those definitions as best it can, but testing
-    # showed this approximation makes phishing_classifier noisy on
-    # ordinary URLs with a path or query string but NO other risk
-    # indicator (e.g. a plain "company.com/reports?id=42" scored ~77%
-    # "phishing" from the ML signal alone). Rather than ship that false-
-    # positive risk, the ML score's standalone influence is capped
-    # whenever heuristic_score found zero corroborating evidence — it can
-    # still push a URL into "worth a second look" territory, but not
-    # single-handedly brand a clean-looking URL "Malicious". When ANY
-    # heuristic flag also fires, the ML score is trusted at full strength,
-    # since the two signals corroborating each other is exactly the kind
-    # of agreement a security tool should escalate on.
-    _UNCORROBORATED_ML_CAP = 30
-
-    if heuristic_score == 0:
-        ml_contribution = min(ml_score, _UNCORROBORATED_ML_CAP)
-    else:
-        ml_contribution = ml_score
-
-    # Combine heuristic and ML scores the same way risk_engine.py combines
-    # spam-text and URL-channel signals: take the stronger signal as the
-    # base, then add a smaller synergy bonus when both agree, so a single
-    # confident channel is never diluted by averaging with a weaker one.
-    base = max(heuristic_score, ml_contribution)
-    synergy_bonus = round(min(heuristic_score, ml_contribution) * 0.3)
-    combined_score = min(100, base + synergy_bonus)
 
     return {
         "url": url,
-        "risk_score": combined_score,
-        "heuristic_score": heuristic_score,
-        "phishing_ml_probability": phishing_ml_probability,
-        "flags": flags,
-        "features": features,
+        "risk_score": score,
+        "risk_level": level,
+        "flags": flags
     }
 
 
-def analyze_urls(url_list: list[str]) -> dict:
-    """Run check_url() over every URL and aggregate the results.
 
-    Args:
-        url_list: URLs extracted from an email body.
-
-    Returns:
-        A dict with:
-            url_count           - number of URLs analyzed
-            per_url_results     - list of check_url() results, one per URL
-            max_url_risk        - highest single-URL combined risk_score
-                                   found (0 if no URLs present)
-            max_phishing_ml_probability - highest ML phishing_classifier
-                                   probability found across URLs, or None
-                                   if the model isn't loaded
-            all_flags           - flattened, de-duplicated list of every
-                                   flag raised across all URLs
+def analyze_urls(urls: list[str]) -> dict:
     """
-    if not url_list:
+    Analyze multiple URLs and return the exact structure required
+    by risk_engine.py.
+    """
+
+    if not urls:
         return {
             "url_count": 0,
-            "per_url_results": [],
             "max_url_risk": 0,
             "max_phishing_ml_probability": None,
             "all_flags": [],
+            "details": []
         }
 
-    per_url_results = [check_url(url) for url in url_list]
-    max_url_risk = max(result["risk_score"] for result in per_url_results)
 
-    ml_probabilities = [
-        result["phishing_ml_probability"]
-        for result in per_url_results
-        if result["phishing_ml_probability"] is not None
-    ]
-    max_phishing_ml_probability = max(ml_probabilities) if ml_probabilities else None
+    results = []
 
-    all_flags: list[str] = []
-    for result in per_url_results:
-        for flag in result["flags"]:
-            if flag not in all_flags:
-                all_flags.append(flag)
+    max_risk = 0
+    max_phishing_probability = None
+    all_flags = []
+
+
+    for url in urls:
+
+        result = analyze_url(url)
+
+        results.append(result)
+
+
+        # Highest heuristic URL risk
+        risk = result.get("risk_score", 0)
+
+        if risk > max_risk:
+            max_risk = risk
+
+
+        # Collect flags
+        all_flags.extend(
+            result.get("flags", [])
+        )
+
+
+        # Future phishing ML compatibility
+        phishing_probability = result.get(
+            "phishing_ml_probability",
+            None
+        )
+
+        if phishing_probability is not None:
+
+            if (
+                max_phishing_probability is None
+                or phishing_probability > max_phishing_probability
+            ):
+                max_phishing_probability = phishing_probability
+
+
 
     return {
-        "url_count": len(url_list),
-        "per_url_results": per_url_results,
-        "max_url_risk": max_url_risk,
-        "max_phishing_ml_probability": max_phishing_ml_probability,
-        "all_flags": all_flags,
-    }
+    "url_count": len(results),
+    "max_url_risk": max_risk,
+    "max_phishing_ml_probability": max_phishing_probability,
+    "all_flags": all_flags,
+
+    # compatibility with Streamlit UI
+    "per_url_results": results,
+
+    # keep old name also
+    "details": results
+}
