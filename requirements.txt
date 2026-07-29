@@ -22,4 +22,4 @@ reportlab==4.2.5
 # Explainability (optional — the custom rule-based engine in
 # explain_prediction.py works without this; SHAP adds deeper
 # feature-attribution explanations where installed)
-shap==0.46.0
+import shap
